@@ -1,37 +1,243 @@
-# High level steps for project
+# Project Plan
 
-Part 1: Plan
+## Working Assumptions
 
-Enrich this document to plan out each of these parts in detail, with substeps listed out as a checklist to be checked off by the agent, and with tests and success critieria for each. Also create an AGENTS.md file inside the frontend directory that describes the existing code there. Ensure the user checks and approves the plan.
+- Keep the architecture simple: Next.js remains the frontend app, FastAPI owns the backend API, and FastAPI serves the built frontend in the integrated Docker setup
+- During development, separate frontend and backend dev servers are acceptable if they improve iteration speed and reduce coupling
+- Authentication is a lightweight MVP flow: backend credential verification plus frontend-managed auth state, with no cookie or session system
+- SQLite stores one full board JSON document per user
+- The AI may create, edit, move, and delete cards, and may rename columns
+- Testing is required both in normal local development and in Docker-based integrated verification
 
-Part 2: Scaffolding
+## Part 1: Planning And Documentation
 
-Set up the Docker infrastructure, the backend in backend/ with FastAPI, and write the start and stop scripts in the scripts/ directory. This should serve example static HTML to confirm that a 'hello world' example works running locally and also make an API call.
+Goal: turn the repo instructions into an implementation-ready plan without changing product code.
 
-Part 3: Add in Frontend
+Checklist
+- [x] Revise the root `AGENTS.md` with the clarified MVP decisions
+- [x] Expand this plan into concrete implementation phases, tests, and success criteria
+- [x] Add `frontend/AGENTS.md` describing the existing frontend structure, current capabilities, and current test setup
+- [x] Update placeholder `backend/AGENTS.md` and `scripts/AGENTS.md` once those areas have enough structure to document
+- [x] Get explicit user approval on the revised plan before starting implementation work
 
-Now update so that the frontend is statically built and served, so that the app has the demo Kanban board displayed at /. Comprehensive unit and integration tests.
+Tests
+- [x] No code changes required in this phase
+- [x] Verify documentation is internally consistent and reflects the agreed decisions
 
-Part 4: Add in a fake user sign in experience
+Success Criteria
+- [x] A future implementation pass can proceed phase by phase without major ambiguity
+- [x] The user has approved the execution order and scope
 
-Now update so that on first hitting /, you need to log in with dummy credentials ("user", "password") in order to see the Kanban, and you can log out. Comprehensive tests.
+## Part 2: Scaffolding
 
-Part 5: Database modeling
+Goal: establish the backend, container, and script foundations before integrating the real frontend.
 
-Now propose a database schema for the Kanban, saving it as JSON. Document the database approach in docs/ and get user sign off.
+Checklist
+- [x] Create the FastAPI application skeleton in `backend/`
+- [x] Add Python dependency management using `uv`
+- [x] Create a minimal Docker build that can run the backend locally
+- [x] Create start and stop scripts for macOS, Windows, and Linux in `scripts/`
+- [x] Serve a simple placeholder HTML page from FastAPI at `/`
+- [x] Add at least one simple API route, such as a health or hello endpoint
+- [x] Document how to start the app locally and in Docker with minimal README changes
 
-Part 6: Backend
+Tests
+- [x] Add backend tests for the health or hello route
+- [x] Verify the backend starts locally outside Docker
+- [x] Verify the container starts and serves both the placeholder page and API route
 
-Now add API routes to allow the backend to read and change the Kanban for a given user; test this thoroughly with backend unit tests. The database should be created if it doesn't exist.
+Success Criteria
+- [x] A developer can start the app locally with the scripts
+- [x] Visiting `/` returns backend-served HTML
+- [x] Visiting the API test route returns a successful JSON response
+- [x] The same basic flow works inside Docker
 
-Part 7: Frontend + Backend
+## Part 3: Serve The Existing Frontend
 
-Now have the frontend actually use the backend API, so that the app is a proper persistent Kanban board. Test very throughly.
+Goal: replace the placeholder page with the current Kanban frontend, still without persistence.
 
-Part 8: AI connectivity
+Checklist
+- [x] Decide the simplest reliable build path for the current frontend so FastAPI can serve it in the integrated setup
+- [x] Update frontend build configuration only as needed to support backend hosting
+- [x] Wire the Docker image so the built frontend assets are served by FastAPI at `/`
+- [x] Keep the existing Kanban demo behavior working
+- [x] Document the frontend serving approach in the relevant `AGENTS.md` files if needed
 
-Now allow the backend to make an AI call via OpenRouter. Test connectivity with a simple "2+2" test and ensure the AI call is working.
+Tests
+- [x] Run the existing frontend unit tests and fix only real integration breakage
+- [x] Run the existing Playwright tests against the appropriate local setup
+- [x] Add or adjust an integration check proving FastAPI serves the built frontend
+- [x] Verify the integrated flow in Docker
 
-Part 9: Now extend the backend call so that it always calls the AI with the JSON of the Kanban board, plus the user's question (and conversation history). The AI should respond with Structured Outputs that includes the response to the user and optionaly an update to the Kanban. Test thoroughly.
+Success Criteria
+- [x] The Kanban board loads from `/` through FastAPI
+- [x] Existing demo interactions still work
+- [x] Local and Docker verification both pass
 
-Part 10: Now add a beautiful sidebar widget to the UI supporting full AI chat, and allowing the LLM (as it determines) to update the Kanban based on its Structured Outputs. If the AI updates the Kanban, then the UI should refresh automatically.
+## Part 4: MVP Login Experience
+
+Goal: gate the board behind a simple login flow using the hardcoded credentials.
+
+Checklist
+- [x] Add a backend login endpoint that validates `user` / `password`
+- [x] Decide and document the frontend auth-state storage approach
+- [x] Show a login screen at `/` when the user is not authenticated
+- [x] On successful login, show the Kanban board
+- [x] Add a logout action that returns the app to the login state
+- [x] Prevent protected backend routes from being used without the lightweight auth mechanism chosen for the MVP
+
+Tests
+- [x] Add backend tests for successful and failed login attempts
+- [x] Add frontend tests for login form validation and logout
+- [x] Add end-to-end coverage for failed login, successful login, refresh behavior, and logout
+- [x] Verify the auth flow in Docker
+
+Success Criteria
+- [x] The board is not accessible from the normal UI until login succeeds
+- [x] Only the hardcoded credentials are accepted
+- [x] Logout reliably clears access and returns the user to the login screen
+
+## Part 5: Database Modeling
+
+Goal: define and document the simplest durable persistence model before wiring full CRUD.
+
+Checklist
+- [ ] Design the SQLite schema for users and boards
+- [ ] Store the full board as one JSON document per user
+- [ ] Define how the database file location is configured for local and Docker use
+- [ ] Decide how the initial board is seeded for a user with no saved board
+- [ ] Document the schema and persistence rules in `docs/`
+- [ ] Get user sign-off on the database approach before building the full persistence layer
+
+Tests
+- [ ] Add backend tests for database initialization
+- [ ] Add backend tests for creating a missing database automatically
+- [ ] Add backend tests for seeding or retrieving a default board for a new user
+
+Success Criteria
+- [ ] The persistence design is documented and approved
+- [ ] The database can be created from scratch without manual setup
+- [ ] A new user path yields a valid board JSON document
+
+## Part 6: Backend Board API
+
+Goal: provide the backend endpoints needed to load and save a user board.
+
+Checklist
+- [ ] Implement database access for reading a board by user
+- [ ] Implement database access for saving a full board by user
+- [ ] Add API routes for loading the current board and replacing the current board
+- [ ] Validate the board payload shape before saving
+- [ ] Return useful error responses for invalid credentials or invalid board data
+- [ ] Keep the implementation simple by treating board persistence as full-document read and write
+
+Tests
+- [ ] Add backend unit tests for read and write operations
+- [ ] Add backend API tests for valid and invalid board payloads
+- [ ] Add backend tests for persistence across app restarts where practical
+- [ ] Verify database creation and board persistence in Docker
+
+Success Criteria
+- [ ] The backend can load and save a board for the signed-in user
+- [ ] Invalid board payloads are rejected clearly
+- [ ] Persisted changes survive app restart
+
+## Part 7: Frontend And Backend Integration
+
+Goal: make the board persistent by having the frontend use the backend API instead of in-memory state only.
+
+Checklist
+- [ ] Add frontend API client helpers for login and board operations
+- [ ] Load the board from the backend after login
+- [ ] Save board changes from column renames, card edits, card moves, card creation, and card deletion
+- [ ] Handle loading, saving, and error states without overcomplicating the UI
+- [ ] Make sure the initial in-memory demo state is only used as a fallback or seed, not as the source of truth
+
+Tests
+- [ ] Update frontend unit tests where behavior changes from local-only to API-backed
+- [ ] Add integration tests around fetching and saving board state
+- [ ] Add end-to-end coverage proving persisted changes survive page reloads
+- [ ] Verify the full flow in Docker
+
+Success Criteria
+- [ ] User changes persist after reload
+- [ ] All core board actions remain functional
+- [ ] The integrated app works both locally and in Docker
+
+## Part 8: AI Connectivity
+
+Goal: prove the backend can call OpenRouter successfully before introducing board mutation logic.
+
+Checklist
+- [ ] Add backend configuration for `OPENROUTER_API_KEY`
+- [ ] Implement a minimal OpenRouter client using `openai/gpt-oss-120b`
+- [ ] Add a simple internal or test route that performs a connectivity check
+- [ ] Confirm the backend handles missing or invalid API keys clearly
+- [ ] Keep the first AI verification narrow, such as a simple `2+2` prompt
+
+Tests
+- [ ] Add backend tests that mock the OpenRouter client
+- [ ] Run a real connectivity check when credentials are available
+- [ ] Verify the container can access the required environment configuration
+
+Success Criteria
+- [ ] The backend can successfully complete a real AI request
+- [ ] Failure paths for missing configuration are understandable
+- [ ] AI connectivity is proven before chat features depend on it
+
+## Part 9: Structured AI Board Updates
+
+Goal: let the backend send board context and conversation history to the AI and receive a structured reply plus an optional board update.
+
+Checklist
+- [ ] Define a structured output schema for AI responses
+- [ ] Include the current board JSON, the user message, and conversation history in the AI request
+- [ ] Decide the simplest update contract for the MVP
+- [ ] Prefer a full updated board object in the structured output over granular patch operations unless testing shows that is not viable
+- [ ] Validate any AI-returned board update before saving it
+- [ ] Save the updated board only when the structured output includes one
+- [ ] Return both the assistant reply and any board update metadata to the frontend
+
+Tests
+- [ ] Add backend tests for parsing valid structured outputs
+- [ ] Add backend tests for invalid or partial AI responses
+- [ ] Add backend tests proving valid AI board updates are persisted
+- [ ] Add backend tests proving invalid AI board updates are rejected safely
+
+Success Criteria
+- [ ] The backend can turn a user message plus board context into a structured AI response
+- [ ] Optional board updates are validated and persisted correctly
+- [ ] Invalid AI output does not corrupt saved data
+
+## Part 10: AI Sidebar UI
+
+Goal: expose the AI workflow in the frontend and keep the board in sync with AI-driven changes.
+
+Checklist
+- [ ] Design and build a sidebar chat UI that fits the existing visual direction
+- [ ] Add message history rendering and a composer
+- [ ] Send user messages to the backend AI endpoint
+- [ ] Show loading and error states clearly
+- [ ] Apply AI-returned board updates to the UI automatically
+- [ ] Refresh or reconcile frontend board state after AI mutations so the board and chat stay consistent
+- [ ] Allow AI-driven card creation, editing, moving, deletion, and column renaming through the shared board update flow
+
+Tests
+- [ ] Add frontend component tests for the chat sidebar states
+- [ ] Add integration tests for successful and failed AI interactions
+- [ ] Add end-to-end coverage for AI-driven board changes appearing in the UI
+- [ ] Verify the AI sidebar flow in Docker
+
+Success Criteria
+- [ ] The user can chat with the AI from the sidebar
+- [ ] AI responses appear in the UI with usable feedback during loading and failure
+- [ ] AI board changes are reflected on the board automatically
+
+## Definition Of Done
+
+- [ ] The app runs locally through the provided scripts
+- [ ] The app runs in Docker
+- [ ] Login works with the MVP credentials
+- [ ] The board is persistent per user through SQLite
+- [ ] The AI sidebar can respond and update the board
+- [ ] Local and Docker verification steps are documented and pass

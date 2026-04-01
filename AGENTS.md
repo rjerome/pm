@@ -11,22 +11,30 @@ This project is building a Project Management App. Key features:
 
 ## Limitations
 
-For the MVP, there will only be a user sign in (hardcoded to 'user' and 'password') but the database will support multiple users for future.
-
-For the MVP, there will only be 1 Kanban board per signed in user.
-
-For the MVP, this will run locally (in a docker container)
+- For the MVP, there will only be a user sign in (hardcoded to `user` and `password`) but the database will support multiple users in future.
+- For the MVP, there will only be 1 Kanban board per signed in user.
+- For the MVP, this will run locally in Docker.
 
 ## Technical Decisions
 
-- NextJS frontend
-- Python FastAPI backend, including serving the static NextJS site at /
-- Everything packaged into a Docker container
-- Use "uv" as the package manager for python in the Docker container
-- Use OpenRouter for the AI calls. An OPENROUTER_API_KEY is in .env in the project root
+- Next.js frontend in `frontend/`
+- Python FastAPI backend in `backend/`
+- FastAPI serves the built frontend at `/` in the integrated Docker setup
+- During local development, separate frontend and backend dev servers are acceptable if that keeps the workflow simpler and more robust
+- Everything is packaged into a Docker container
+- Use `uv` as the package manager for Python in the Docker container
+- Use OpenRouter for the AI calls. `OPENROUTER_API_KEY` is in `.env` in the project root
 - Use `openai/gpt-oss-120b` as the model
-- Use SQLLite local database for the database, creating a new db if it doesn't exist
-- Start and Stop server scripts for Mac, PC, Linux in scripts/
+- Use SQLite locally, creating the database automatically if it does not exist
+- Persist the entire board as one JSON document per user
+- Start and stop server scripts for Mac, Windows, and Linux in `scripts/`
+
+## MVP Clarifications
+
+- Authentication is intentionally lightweight for the MVP: the backend verifies the hardcoded credentials, and the frontend manages logged-in state without introducing cookie or session infrastructure
+- The AI is allowed to create, edit, move, and delete cards
+- The AI is also allowed to rename columns
+- The app should be tested both outside Docker during development and inside Docker as part of integrated verification
 
 ## Starting Point
 
@@ -46,6 +54,12 @@ A working MVP of the frontend has been built and is already in frontend. This is
 2. Keep it simple - NEVER over-engineer, ALWAYS simplify, NO unnecessary defensive programming. No extra features - focus on simplicity.
 3. Be concise. Keep README minimal. IMPORTANT: no emojis ever
 4. When hitting issues, always identify root cause before trying a fix. Do not guess. Prove with evidence, then fix the root cause.
+
+## Execution Notes
+
+- `docs/PLAN.md` is the source of truth for execution order, checkpoints, tests, and success criteria
+- Update scoped `AGENTS.md` files inside subdirectories when their responsibilities become concrete
+- Treat the existing frontend as a real starting point: preserve useful code and tests rather than rebuilding it without evidence
 
 ## Working documentation
 

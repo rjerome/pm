@@ -1,5 +1,5 @@
-import { KanbanBoard } from "@/components/KanbanBoard";
+import { HomeScreen } from "@/components/HomeScreen";
 
 export default function Home() {
-  return <KanbanBoard />;
+  return <HomeScreen />;
 }
