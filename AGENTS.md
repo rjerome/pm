@@ -26,7 +26,7 @@ This project is building a Project Management App. Key features:
 - Use OpenRouter for the AI calls. `OPENROUTER_API_KEY` is in `.env` in the project root
 - Use `openai/gpt-oss-120b` as the model
 - Use SQLite locally, creating the database automatically if it does not exist
-- Persist the entire board as one JSON document per user
+- Persist the board in normalized SQLite tables so cards and columns can be queried and updated individually
 - Start and stop server scripts for Mac, Windows, and Linux in `scripts/`
 
 ## MVP Clarifications

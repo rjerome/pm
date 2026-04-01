@@ -5,7 +5,7 @@
 - Keep the architecture simple: Next.js remains the frontend app, FastAPI owns the backend API, and FastAPI serves the built frontend in the integrated Docker setup
 - During development, separate frontend and backend dev servers are acceptable if they improve iteration speed and reduce coupling
 - Authentication is a lightweight MVP flow: backend credential verification plus frontend-managed auth state, with no cookie or session system
-- SQLite stores one full board JSON document per user
+- SQLite stores the board in normalized relational tables for boards, columns, and cards
 - The AI may create, edit, move, and delete cards, and may rename columns
 - Testing is required both in normal local development and in Docker-based integrated verification
 
@@ -102,45 +102,45 @@ Success Criteria
 Goal: define and document the simplest durable persistence model before wiring full CRUD.
 
 Checklist
-- [ ] Design the SQLite schema for users and boards
-- [ ] Store the full board as one JSON document per user
-- [ ] Define how the database file location is configured for local and Docker use
-- [ ] Decide how the initial board is seeded for a user with no saved board
-- [ ] Document the schema and persistence rules in `docs/`
-- [ ] Get user sign-off on the database approach before building the full persistence layer
+- [x] Design the SQLite schema for users, boards, columns, and cards
+- [x] Normalize persistence so cards and columns can be queried and updated individually
+- [x] Define how the database file location is configured for local and Docker use
+- [x] Decide how the initial board is seeded for a user with no saved board
+- [x] Document the schema and persistence rules in `docs/`
+- [x] Get user sign-off on the database approach before building the full persistence layer
 
 Tests
-- [ ] Add backend tests for database initialization
-- [ ] Add backend tests for creating a missing database automatically
-- [ ] Add backend tests for seeding or retrieving a default board for a new user
+- [x] Add backend tests for database initialization
+- [x] Add backend tests for creating a missing database automatically
+- [x] Add backend tests for seeding or retrieving a default board for a new user
 
 Success Criteria
-- [ ] The persistence design is documented and approved
-- [ ] The database can be created from scratch without manual setup
-- [ ] A new user path yields a valid board JSON document
+- [x] The persistence design is documented and approved
+- [x] The database can be created from scratch without manual setup
+- [x] A new user path yields a valid seeded board state assembled from normalized rows
 
 ## Part 6: Backend Board API
 
 Goal: provide the backend endpoints needed to load and save a user board.
 
 Checklist
-- [ ] Implement database access for reading a board by user
-- [ ] Implement database access for saving a full board by user
-- [ ] Add API routes for loading the current board and replacing the current board
-- [ ] Validate the board payload shape before saving
-- [ ] Return useful error responses for invalid credentials or invalid board data
-- [ ] Keep the implementation simple by treating board persistence as full-document read and write
+- [x] Implement database access for reading a board by user from normalized tables
+- [x] Implement database access for focused column and card mutations
+- [x] Add API routes for loading the current board snapshot and applying supported mutations
+- [x] Validate mutation payloads before writing
+- [x] Return useful error responses for invalid credentials, invalid board references, and stale versions
+- [x] Keep writes transaction-based and row-focused instead of replacing the whole board
 
 Tests
-- [ ] Add backend unit tests for read and write operations
-- [ ] Add backend API tests for valid and invalid board payloads
-- [ ] Add backend tests for persistence across app restarts where practical
-- [ ] Verify database creation and board persistence in Docker
+- [x] Add backend unit tests for read and write operations
+- [x] Add backend API tests for valid and invalid board payloads
+- [x] Add backend tests for persistence across app restarts where practical
+- [x] Verify database creation and board persistence in Docker
 
 Success Criteria
-- [ ] The backend can load and save a board for the signed-in user
-- [ ] Invalid board payloads are rejected clearly
-- [ ] Persisted changes survive app restart
+- [x] The backend can load a board snapshot and apply supported card and column mutations for the signed-in user
+- [x] Invalid mutation payloads are rejected clearly
+- [x] Persisted changes survive app restart
 
 ## Part 7: Frontend And Backend Integration
 
@@ -149,9 +149,9 @@ Goal: make the board persistent by having the frontend use the backend API inste
 Checklist
 - [ ] Add frontend API client helpers for login and board operations
 - [ ] Load the board from the backend after login
-- [ ] Save board changes from column renames, card edits, card moves, card creation, and card deletion
+- [ ] Save board changes through focused backend mutations for column renames, card edits, card moves, card creation, and card deletion
 - [ ] Handle loading, saving, and error states without overcomplicating the UI
-- [ ] Make sure the initial in-memory demo state is only used as a fallback or seed, not as the source of truth
+- [ ] Make sure the initial in-memory demo state is only used as a seed reference, not as the source of truth
 
 Tests
 - [ ] Update frontend unit tests where behavior changes from local-only to API-backed
@@ -191,11 +191,11 @@ Goal: let the backend send board context and conversation history to the AI and 
 
 Checklist
 - [ ] Define a structured output schema for AI responses
-- [ ] Include the current board JSON, the user message, and conversation history in the AI request
+- [ ] Include the current board snapshot, the user message, and conversation history in the AI request
 - [ ] Decide the simplest update contract for the MVP
-- [ ] Prefer a full updated board object in the structured output over granular patch operations unless testing shows that is not viable
-- [ ] Validate any AI-returned board update before saving it
-- [ ] Save the updated board only when the structured output includes one
+- [ ] Prefer a structured list of board operations aligned to backend mutations over full-board replacement
+- [ ] Validate any AI-returned board operations before saving them
+- [ ] Apply and persist the returned board operations only when they are valid
 - [ ] Return both the assistant reply and any board update metadata to the frontend
 
 Tests
@@ -206,7 +206,7 @@ Tests
 
 Success Criteria
 - [ ] The backend can turn a user message plus board context into a structured AI response
-- [ ] Optional board updates are validated and persisted correctly
+- [ ] Optional board operations are validated and persisted correctly
 - [ ] Invalid AI output does not corrupt saved data
 
 ## Part 10: AI Sidebar UI

@@ -4,10 +4,14 @@ This directory contains the FastAPI backend for the Project Management MVP.
 
 ## Current State
 
-- `app/main.py` contains the FastAPI app, `/api/health`, and the logic that serves the built frontend export when present
-- `app/main.py` also contains the MVP auth endpoints for login and token verification
-- `tests/test_main.py` covers the health route, auth endpoints, placeholder fallback, and static frontend serving behavior
-- The current backend is intentionally small and proves the API path, auth path, and frontend hosting path work
+- `app/main.py` contains the FastAPI app, auth endpoints, board routes, and static frontend serving
+- `app/config.py` holds shared backend constants and default paths
+- `app/dependencies.py` resolves auth and persistence dependencies
+- `app/board_seed.py` owns the backend seed board data
+- `app/models.py` defines request and response models for auth and board APIs
+- `app/storage.py` owns the normalized SQLite schema, seeding, board assembly, and focused mutations
+- `tests/test_main.py` covers auth, placeholder fallback, database initialization, seeding, board reads, focused mutations, and persistence behavior
+- The backend now proves the API path, auth path, persistence path, and frontend hosting path
 
 ## Responsibility
 
@@ -20,7 +24,7 @@ This directory contains the FastAPI backend for the Project Management MVP.
 
 - Keep the backend simple and boring
 - Prefer a small application structure over early abstraction
-- Persist one full board JSON document per user
+- Persist the board in normalized SQLite tables, while assembling the current frontend board shape in backend code as needed
 - Add tests as backend features are introduced
 - The current auth model is intentionally lightweight: a hardcoded credential check and a frontend-managed bearer token
 - Expand this file as modules and responsibilities become more concrete

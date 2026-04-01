@@ -1,16 +1,23 @@
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-FRONTEND_DIST_DIR = Path(__file__).resolve().parents[2] / "frontend" / "out"
-VALID_USERNAME = "user"
-VALID_PASSWORD = "password"
-AUTH_TOKEN = "pm-mvp-user-token"
+from backend.app.config import AUTH_TOKEN, FRONTEND_DIST_DIR, VALID_PASSWORD, VALID_USERNAME
+from backend.app.dependencies import create_board_store, require_username
+from backend.app.models import (
+    BoardResponse,
+    CardCreateRequest,
+    CardResponse,
+    CardMoveRequest,
+    CardUpdateRequest,
+    ColumnRenameRequest,
+    LoginRequest,
+    LoginResponse,
+)
 
 PLACEHOLDER_HTML = """
 <!doctype html>
@@ -103,28 +110,7 @@ PLACEHOLDER_HTML = """
 </html>
 """
 
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-
-class LoginResponse(BaseModel):
-    token: str
-    username: str
-
-
-def get_authenticated_username(authorization: Optional[str]) -> str:
-    expected_value = f"Bearer {AUTH_TOKEN}"
-    if authorization != expected_value:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized",
-        )
-    return VALID_USERNAME
-
-
-def create_app(frontend_dist_dir: Optional[Path] = None) -> FastAPI:
+def create_app(frontend_dist_dir: Optional[Path] = None, db_path: Optional[Path] = None) -> FastAPI:
     app = FastAPI(title="Project Management MVP")
     app.add_middleware(
         CORSMiddleware,
@@ -137,6 +123,7 @@ def create_app(frontend_dist_dir: Optional[Path] = None) -> FastAPI:
     )
 
     frontend_dir = frontend_dist_dir or FRONTEND_DIST_DIR
+    board_store = create_board_store(db_path)
 
     @app.get("/api/health")
     def read_health() -> dict[str, str]:
@@ -156,11 +143,95 @@ def create_app(frontend_dist_dir: Optional[Path] = None) -> FastAPI:
         return LoginResponse(token=AUTH_TOKEN, username=VALID_USERNAME)
 
     @app.get("/api/auth/me")
-    def read_current_user(
-        authorization: Optional[str] = Header(default=None),
-    ) -> dict[str, str]:
-        username = get_authenticated_username(authorization)
+    def read_current_user(username: str = Depends(require_username)) -> dict[str, str]:
         return {"username": username}
+
+    @app.get("/api/board", response_model=BoardResponse)
+    def read_board(username: str = Depends(require_username)) -> BoardResponse:
+        return BoardResponse(board=board_store.get_board_snapshot(username))
+
+    @app.get("/api/cards/{card_id}", response_model=CardResponse)
+    def read_card(card_id: str, username: str = Depends(require_username)) -> CardResponse:
+        return CardResponse(card=board_store.get_card(username, card_id))
+
+    @app.patch("/api/columns/{column_id}", response_model=BoardResponse)
+    def rename_column(
+        column_id: str,
+        payload: ColumnRenameRequest,
+        username: str = Depends(require_username),
+    ) -> BoardResponse:
+        return BoardResponse(
+            board=board_store.rename_column(
+                username=username,
+                column_id=column_id,
+                title=payload.title,
+                expected_version=payload.version,
+            )
+        )
+
+    @app.post("/api/cards", response_model=BoardResponse, status_code=status.HTTP_201_CREATED)
+    def create_card(
+        payload: CardCreateRequest,
+        username: str = Depends(require_username),
+    ) -> BoardResponse:
+        return BoardResponse(
+            board=board_store.create_card(
+                username=username,
+                card_id=_create_id("card"),
+                column_id=payload.columnId,
+                title=payload.title,
+                details=payload.details,
+                before_card_id=payload.beforeCardId,
+                after_card_id=payload.afterCardId,
+            )
+        )
+
+    @app.patch("/api/cards/{card_id}", response_model=BoardResponse)
+    def update_card(
+        card_id: str,
+        payload: CardUpdateRequest,
+        username: str = Depends(require_username),
+    ) -> BoardResponse:
+        return BoardResponse(
+            board=board_store.update_card(
+                username=username,
+                card_id=card_id,
+                title=payload.title,
+                details=payload.details,
+                expected_version=payload.version,
+            )
+        )
+
+    @app.post("/api/cards/{card_id}/move", response_model=BoardResponse)
+    def move_card(
+        card_id: str,
+        payload: CardMoveRequest,
+        username: str = Depends(require_username),
+    ) -> BoardResponse:
+        return BoardResponse(
+            board=board_store.move_card(
+                username=username,
+                card_id=card_id,
+                target_column_id=payload.targetColumnId,
+                expected_version=payload.version,
+                before_card_id=payload.beforeCardId,
+                after_card_id=payload.afterCardId,
+            )
+        )
+
+    @app.delete("/api/cards/{card_id}", response_model=BoardResponse)
+    def delete_card(
+        card_id: str,
+        version: int = Query(..., ge=1),
+        username: str = Depends(require_username),
+    ) -> BoardResponse:
+        return BoardResponse(
+            board=board_store.delete_card(
+                username=username,
+                card_id=card_id,
+                expected_version=version,
+            )
+        )
 
     if frontend_dir.is_dir():
         app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
@@ -170,6 +241,15 @@ def create_app(frontend_dist_dir: Optional[Path] = None) -> FastAPI:
             return PLACEHOLDER_HTML
 
     return app
+
+
+def _create_id(prefix: str) -> str:
+    import time
+    import secrets
+
+    random_part = secrets.token_hex(3)
+    time_part = format(time.time_ns(), "x")
+    return f"{prefix}-{random_part}{time_part}"
 
 
 app = create_app()
