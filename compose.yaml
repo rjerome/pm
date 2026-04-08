@@ -2,5 +2,7 @@ services:
   app:
     build:
       context: .
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
     ports:
       - "8000:8000"

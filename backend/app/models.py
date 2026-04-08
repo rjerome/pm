@@ -13,6 +13,11 @@ class LoginResponse(BaseModel):
     username: str
 
 
+class AIConnectivityCheckResponse(BaseModel):
+    model: str
+    reply: str
+
+
 class ColumnSnapshot(BaseModel):
     id: str
     slotKey: str

@@ -1,16 +1,51 @@
 from pathlib import Path
+from typing import Optional
 
 from fastapi.testclient import TestClient
 
+from backend.app.ai import (
+    ConnectivityCheckResult,
+    MissingOpenRouterApiKeyError,
+    OpenRouterRequestError,
+)
 from backend.app.main import create_app
 
 
 AUTH_HEADERS = {"Authorization": "Bearer pm-mvp-user-token"}
 
 
-def create_test_client(tmp_path: Path) -> tuple[TestClient, Path]:
+class FakeAIClient:
+    def __init__(
+        self,
+        result: Optional[ConnectivityCheckResult] = None,
+        error: Optional[Exception] = None,
+    ) -> None:
+        self.result = result or ConnectivityCheckResult(
+            model="openai/gpt-oss-120b",
+            reply="4",
+        )
+        self.error = error
+        self.calls = 0
+
+    def run_connectivity_check(self) -> ConnectivityCheckResult:
+        self.calls += 1
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+
+def create_test_client(
+    tmp_path: Path,
+    ai_client: Optional[FakeAIClient] = None,
+) -> tuple[TestClient, Path]:
     db_path = tmp_path / "pm.sqlite3"
-    client = TestClient(create_app(Path("/tmp/frontend-out-missing"), db_path=db_path))
+    client = TestClient(
+        create_app(
+            Path("/tmp/frontend-out-missing"),
+            db_path=db_path,
+            ai_client=ai_client,
+        )
+    )
     return client, db_path
 
 
@@ -70,6 +105,57 @@ def test_me_requires_valid_bearer_token(tmp_path: Path) -> None:
     assert unauthorized_response.json() == {"detail": "Unauthorized"}
     assert authorized_response.status_code == 200
     assert authorized_response.json() == {"username": "user"}
+
+
+def test_ai_connectivity_check_returns_model_reply_for_authenticated_request(
+    tmp_path: Path,
+) -> None:
+    fake_ai_client = FakeAIClient()
+    client, _ = create_test_client(tmp_path, ai_client=fake_ai_client)
+
+    response = client.post("/api/ai/connectivity-check", headers=AUTH_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "model": "openai/gpt-oss-120b",
+        "reply": "4",
+    }
+    assert fake_ai_client.calls == 1
+
+
+def test_ai_connectivity_check_requires_auth(tmp_path: Path) -> None:
+    fake_ai_client = FakeAIClient()
+    client, _ = create_test_client(tmp_path, ai_client=fake_ai_client)
+
+    response = client.post("/api/ai/connectivity-check")
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Unauthorized"}
+    assert fake_ai_client.calls == 0
+
+
+def test_ai_connectivity_check_returns_clear_missing_key_error(tmp_path: Path) -> None:
+    fake_ai_client = FakeAIClient(
+        error=MissingOpenRouterApiKeyError("OPENROUTER_API_KEY is not configured.")
+    )
+    client, _ = create_test_client(tmp_path, ai_client=fake_ai_client)
+
+    response = client.post("/api/ai/connectivity-check", headers=AUTH_HEADERS)
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "OPENROUTER_API_KEY is not configured."}
+
+
+def test_ai_connectivity_check_returns_upstream_error_message(tmp_path: Path) -> None:
+    fake_ai_client = FakeAIClient(
+        error=OpenRouterRequestError("OpenRouter rejected the API key.")
+    )
+    client, _ = create_test_client(tmp_path, ai_client=fake_ai_client)
+
+    response = client.post("/api/ai/connectivity-check", headers=AUTH_HEADERS)
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "OpenRouter rejected the API key."}
 
 
 def test_root_serves_built_frontend_when_static_export_exists(tmp_path: Path) -> None:

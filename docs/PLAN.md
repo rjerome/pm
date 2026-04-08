@@ -169,21 +169,30 @@ Success Criteria
 Goal: prove the backend can call OpenRouter successfully before introducing board mutation logic.
 
 Checklist
-- [ ] Add backend configuration for `OPENROUTER_API_KEY`
-- [ ] Implement a minimal OpenRouter client using `openai/gpt-oss-120b`
-- [ ] Add a simple internal or test route that performs a connectivity check
-- [ ] Confirm the backend handles missing or invalid API keys clearly
-- [ ] Keep the first AI verification narrow, such as a simple `2+2` prompt
+- [x] Add backend configuration for `OPENROUTER_API_KEY`
+- [x] Implement a minimal OpenRouter client using `openai/gpt-oss-120b`
+- [x] Add a temporary authenticated API route that performs a connectivity check
+- [x] Confirm the backend handles missing or invalid API keys clearly
+- [x] Keep the first AI verification narrow, such as a simple `2+2` prompt
 
 Tests
-- [ ] Add backend tests that mock the OpenRouter client
-- [ ] Run a real connectivity check when credentials are available
-- [ ] Verify the container can access the required environment configuration
+- [x] Add backend tests that mock the OpenRouter client
+- [x] Run a manual real connectivity check when credentials are available
+- [x] Verify the container can access `OPENROUTER_API_KEY` through explicit Docker env wiring
 
 Success Criteria
-- [ ] The backend can successfully complete a real AI request
-- [ ] Failure paths for missing configuration are understandable
-- [ ] AI connectivity is proven before chat features depend on it
+- [x] The backend can successfully complete a real AI request
+- [x] Failure paths for missing configuration are understandable
+- [x] AI connectivity is proven before chat features depend on it
+
+Execution Notes
+- [x] User confirmed a temporary authenticated API route for part 8 verification
+- [x] User confirmed manual real connectivity verification rather than automatic startup or test execution
+- [x] User confirmed explicit Docker env wiring for `OPENROUTER_API_KEY`
+- [x] Temporary route implemented at `POST /api/ai/connectivity-check`
+- [x] Mocked backend tests added for success, auth failure, missing key, and upstream failure
+- [x] Real local connectivity check completed successfully against OpenRouter
+- [x] Real Docker connectivity check completed successfully through the integrated app
 
 ## Part 9: Structured AI Board Updates
 
@@ -235,9 +244,9 @@ Success Criteria
 
 ## Definition Of Done
 
-- [ ] The app runs locally through the provided scripts
-- [ ] The app runs in Docker
-- [ ] Login works with the MVP credentials
-- [ ] The board is persistent per user through SQLite
+- [x] The app runs locally through the provided scripts
+- [x] The app runs in Docker
+- [x] Login works with the MVP credentials
+- [x] The board is persistent per user through SQLite
 - [ ] The AI sidebar can respond and update the board
-- [ ] Local and Docker verification steps are documented and pass
+- [x] Local and Docker verification steps are documented and pass

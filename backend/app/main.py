@@ -6,9 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from backend.app.ai import (
+    MissingOpenRouterApiKeyError,
+    OpenRouterClient,
+    OpenRouterRequestError,
+)
 from backend.app.config import AUTH_TOKEN, FRONTEND_DIST_DIR, VALID_PASSWORD, VALID_USERNAME
 from backend.app.dependencies import create_board_store, require_username
 from backend.app.models import (
+    AIConnectivityCheckResponse,
     BoardResponse,
     CardCreateRequest,
     CardResponse,
@@ -110,7 +116,11 @@ PLACEHOLDER_HTML = """
 </html>
 """
 
-def create_app(frontend_dist_dir: Optional[Path] = None, db_path: Optional[Path] = None) -> FastAPI:
+def create_app(
+    frontend_dist_dir: Optional[Path] = None,
+    db_path: Optional[Path] = None,
+    ai_client: Optional[OpenRouterClient] = None,
+) -> FastAPI:
     app = FastAPI(title="Project Management MVP")
     app.add_middleware(
         CORSMiddleware,
@@ -124,6 +134,7 @@ def create_app(frontend_dist_dir: Optional[Path] = None, db_path: Optional[Path]
 
     frontend_dir = frontend_dist_dir or FRONTEND_DIST_DIR
     board_store = create_board_store(db_path)
+    configured_ai_client = ai_client or OpenRouterClient()
 
     @app.get("/api/health")
     def read_health() -> dict[str, str]:
@@ -145,6 +156,30 @@ def create_app(frontend_dist_dir: Optional[Path] = None, db_path: Optional[Path]
     @app.get("/api/auth/me")
     def read_current_user(username: str = Depends(require_username)) -> dict[str, str]:
         return {"username": username}
+
+    @app.post("/api/ai/connectivity-check", response_model=AIConnectivityCheckResponse)
+    def run_ai_connectivity_check(
+        username: str = Depends(require_username),
+    ) -> AIConnectivityCheckResponse:
+        del username
+
+        try:
+            result = configured_ai_client.run_connectivity_check()
+        except MissingOpenRouterApiKeyError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(exc),
+            ) from exc
+        except OpenRouterRequestError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=str(exc),
+            ) from exc
+
+        return AIConnectivityCheckResponse(
+            model=result.model,
+            reply=result.reply,
+        )
 
     @app.get("/api/board", response_model=BoardResponse)
     def read_board(username: str = Depends(require_username)) -> BoardResponse:

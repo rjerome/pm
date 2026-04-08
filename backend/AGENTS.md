@@ -6,18 +6,19 @@ This directory contains the FastAPI backend for the Project Management MVP.
 
 - `app/main.py` contains the FastAPI app, auth endpoints, board routes, and static frontend serving
 - `app/config.py` holds shared backend constants and default paths
+- `app/ai.py` contains the minimal OpenRouter connectivity client and response parsing
 - `app/dependencies.py` resolves auth and persistence dependencies
 - `app/board_seed.py` owns the backend seed board data
 - `app/models.py` defines request and response models for auth and board APIs
 - `app/storage.py` owns the normalized SQLite schema, seeding, board assembly, and focused mutations
-- `tests/test_main.py` covers auth, placeholder fallback, database initialization, seeding, board reads, focused mutations, and persistence behavior
-- The backend now proves the API path, auth path, persistence path, and frontend hosting path
+- `tests/test_main.py` covers auth, placeholder fallback, database initialization, seeding, focused board mutations, and the temporary AI connectivity route
+- The backend now proves the API path, auth path, persistence path, frontend hosting path, and basic OpenRouter connectivity path
 
 ## Responsibility
 
 - Own the API for login, board loading, board saving, and AI chat
 - Own SQLite persistence
-- Own OpenRouter integration
+- Own OpenRouter integration, starting with the temporary part 8 connectivity route
 - Serve the built frontend in the integrated Docker setup
 
 ## Working Guidance
