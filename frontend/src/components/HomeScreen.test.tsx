@@ -1,3 +1,14 @@
+vi.mock("@/components/KanbanBoard", () => ({
+  KanbanBoard: ({ onLogout }: { onLogout?: () => void }) => (
+    <div>
+      <h1>Kanban Studio</h1>
+      <button type="button" onClick={() => onLogout?.()}>
+        Log out
+      </button>
+    </div>
+  ),
+}));
+
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HomeScreen } from "@/components/HomeScreen";

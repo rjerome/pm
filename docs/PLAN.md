@@ -147,22 +147,22 @@ Success Criteria
 Goal: make the board persistent by having the frontend use the backend API instead of in-memory state only.
 
 Checklist
-- [ ] Add frontend API client helpers for login and board operations
-- [ ] Load the board from the backend after login
-- [ ] Save board changes through focused backend mutations for column renames, card edits, card moves, card creation, and card deletion
-- [ ] Handle loading, saving, and error states without overcomplicating the UI
-- [ ] Make sure the initial in-memory demo state is only used as a seed reference, not as the source of truth
+- [x] Add frontend API client helpers for login and board operations
+- [x] Load the board from the backend after login
+- [x] Save board changes through focused backend mutations for column renames, card edits, card moves, card creation, and card deletion
+- [x] Handle loading, saving, and error states without overcomplicating the UI
+- [x] Make sure the initial in-memory demo state is only used as a seed reference, not as the source of truth
 
 Tests
-- [ ] Update frontend unit tests where behavior changes from local-only to API-backed
-- [ ] Add integration tests around fetching and saving board state
-- [ ] Add end-to-end coverage proving persisted changes survive page reloads
-- [ ] Verify the full flow in Docker
+- [x] Update frontend unit tests where behavior changes from local-only to API-backed
+- [x] Add integration tests around fetching and saving board state
+- [x] Add end-to-end coverage proving persisted changes survive page reloads
+- [x] Verify the full flow in Docker
 
 Success Criteria
-- [ ] User changes persist after reload
-- [ ] All core board actions remain functional
-- [ ] The integrated app works both locally and in Docker
+- [x] User changes persist after reload
+- [x] All core board actions remain functional
+- [x] The integrated app works both locally and in Docker
 
 ## Part 8: AI Connectivity
 

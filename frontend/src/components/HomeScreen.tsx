@@ -16,6 +16,7 @@ const clearToken = () => {
 
 export const HomeScreen = () => {
   const [authState, setAuthState] = useState<AuthState>("checking");
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -32,9 +33,11 @@ export const HomeScreen = () => {
 
       try {
         await verifyToken(token);
+        setSessionToken(token);
         setAuthState("signed_in");
       } catch {
         clearToken();
+        setSessionToken(null);
         setAuthState("signed_out");
       }
     };
@@ -56,10 +59,12 @@ export const HomeScreen = () => {
     try {
       const result = await login(username.trim(), password.trim());
       saveToken(result.token);
+      setSessionToken(result.token);
       setPassword("");
       setAuthState("signed_in");
     } catch {
       clearToken();
+      setSessionToken(null);
       setErrorMessage("Invalid credentials.");
       setAuthState("signed_out");
     } finally {
@@ -69,6 +74,7 @@ export const HomeScreen = () => {
 
   const handleLogout = () => {
     clearToken();
+    setSessionToken(null);
     setPassword("");
     setErrorMessage("");
     setAuthState("signed_out");
@@ -89,8 +95,8 @@ export const HomeScreen = () => {
     );
   }
 
-  if (authState === "signed_in") {
-    return <KanbanBoard onLogout={handleLogout} />;
+  if (authState === "signed_in" && sessionToken) {
+    return <KanbanBoard token={sessionToken} onLogout={handleLogout} />;
   }
 
   return (

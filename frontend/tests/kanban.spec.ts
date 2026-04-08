@@ -47,6 +47,22 @@ test("adds a card to a column after sign in", async ({ page }) => {
   await firstColumn.getByPlaceholder("Details").fill("Added via e2e.");
   await firstColumn.getByRole("button", { name: /add card/i }).click();
   await expect(firstColumn.getByText("Playwright card")).toBeVisible();
+  await page.reload();
+  await expect(firstColumn.getByText("Playwright card")).toBeVisible();
+});
+
+test("edits a card and keeps the change after reload", async ({ page }) => {
+  await login(page);
+  const card = page.getByTestId("card-card-1");
+  await card.getByLabel(/edit align roadmap themes/i).click();
+  await card.getByLabel(/edit align roadmap themes title/i).fill("Roadmap alignment");
+  await card.getByLabel(/edit align roadmap themes details/i).fill(
+    "Updated through Playwright."
+  );
+  await card.getByRole("button", { name: /save/i }).click();
+  await expect(page.getByText("Roadmap alignment")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Roadmap alignment")).toBeVisible();
 });
 
 test("moves a card between columns after sign in", async ({ page }) => {

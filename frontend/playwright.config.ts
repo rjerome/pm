@@ -1,7 +1,13 @@
+import os from "node:os";
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const useExternalServer = Boolean(process.env.PLAYWRIGHT_BASE_URL);
+const playwrightDbPath = path.join(
+  os.tmpdir(),
+  `pm-playwright-${Date.now()}.sqlite3`
+);
 
 export default defineConfig({
   testDir: "./tests",
@@ -20,6 +26,10 @@ export default defineConfig({
           command:
             ".venv/bin/python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000",
           cwd: "..",
+          env: {
+            ...process.env,
+            PM_DB_PATH: playwrightDbPath,
+          },
           url: "http://127.0.0.1:8000/api/health",
           reuseExistingServer: false,
           timeout: 120_000,

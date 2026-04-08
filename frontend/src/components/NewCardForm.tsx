@@ -3,19 +3,25 @@ import { useState, type FormEvent } from "react";
 const initialFormState = { title: "", details: "" };
 
 type NewCardFormProps = {
-  onAdd: (title: string, details: string) => void;
+  onAdd: (title: string, details: string) => Promise<boolean> | boolean;
 };
 
 export const NewCardForm = ({ onAdd }: NewCardFormProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [formState, setFormState] = useState(initialFormState);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!formState.title.trim()) {
       return;
     }
-    onAdd(formState.title.trim(), formState.details.trim());
+    setIsSubmitting(true);
+    const didAdd = await onAdd(formState.title.trim(), formState.details.trim());
+    setIsSubmitting(false);
+    if (!didAdd) {
+      return;
+    }
     setFormState(initialFormState);
     setIsOpen(false);
   };
@@ -45,12 +51,14 @@ export const NewCardForm = ({ onAdd }: NewCardFormProps) => {
           <div className="flex items-center gap-2">
             <button
               type="submit"
+              disabled={isSubmitting}
               className="rounded-full bg-[var(--secondary-purple)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:brightness-110"
             >
-              Add card
+              {isSubmitting ? "Adding..." : "Add card"}
             </button>
             <button
               type="button"
+              disabled={isSubmitting}
               onClick={() => {
                 setIsOpen(false);
                 setFormState(initialFormState);
