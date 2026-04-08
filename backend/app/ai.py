@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 from urllib import error, request
 
 from backend.app.config import (
@@ -12,6 +12,7 @@ from backend.app.config import (
     OPENROUTER_TIMEOUT_SECONDS,
     get_openrouter_api_key,
 )
+from backend.app.models import AIAssistantPayload, AIConversationMessage
 
 
 class MissingOpenRouterApiKeyError(RuntimeError):
@@ -26,6 +27,13 @@ class OpenRouterRequestError(RuntimeError):
 class ConnectivityCheckResult:
     model: str
     reply: str
+
+
+@dataclass(frozen=True)
+class BoardAssistantResult:
+    model: str
+    reply: str
+    operations: List[dict]
 
 
 class OpenRouterClient:
@@ -62,6 +70,45 @@ class OpenRouterClient:
         return ConnectivityCheckResult(
             model=str(response_payload.get("model") or self.model),
             reply=_extract_reply_text(response_payload),
+        )
+
+    def run_board_assistant(
+        self,
+        board_snapshot: dict,
+        message: str,
+        history: List[AIConversationMessage],
+    ) -> BoardAssistantResult:
+        if not self.api_key:
+            raise MissingOpenRouterApiKeyError(
+                "OPENROUTER_API_KEY is not configured."
+            )
+
+        response_payload = self._post(
+            {
+                "model": self.model,
+                "messages": _build_board_assistant_messages(
+                    board_snapshot=board_snapshot,
+                    message=message,
+                    history=history,
+                ),
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "board_assistant_response",
+                        "strict": True,
+                        "schema": AIAssistantPayload.model_json_schema(),
+                    },
+                },
+                "plugins": [{"id": "response-healing"}],
+                "temperature": 0,
+            }
+        )
+
+        assistant_payload = _parse_assistant_payload(response_payload)
+        return BoardAssistantResult(
+            model=str(response_payload.get("model") or self.model),
+            reply=assistant_payload.reply,
+            operations=[operation.model_dump() for operation in assistant_payload.operations],
         )
 
     def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -147,3 +194,77 @@ def _extract_reply_text(response_payload: dict[str, Any]) -> str:
     raise OpenRouterRequestError(
         "OpenRouter response did not include assistant text."
     )
+
+
+def _build_board_assistant_messages(
+    board_snapshot: Dict[str, object],
+    message: str,
+    history: List[AIConversationMessage],
+) -> List[dict]:
+    messages: List[dict] = [
+        {
+            "role": "system",
+            "content": (
+                "You are an assistant for a kanban board. "
+                "Reply naturally to the user and include zero or more focused board operations. "
+                "Only use these operations when needed: rename_column, create_card, update_card, "
+                "move_card, delete_card. "
+                "Do not invent columns or cards that are not present in the provided board snapshot. "
+                "Use zero operations when no board change is needed."
+            ),
+        }
+    ]
+
+    for history_message in history:
+        messages.append(history_message.model_dump())
+
+    messages.append(
+        {
+            "role": "user",
+            "content": (
+                "Current board snapshot:\n"
+                f"{json.dumps(board_snapshot, ensure_ascii=True)}\n\n"
+                "User request:\n"
+                f"{message}"
+            ),
+        }
+    )
+
+    return messages
+
+
+def _parse_assistant_payload(response_payload: dict[str, Any]) -> AIAssistantPayload:
+    raw_content = _extract_reply_text(response_payload)
+
+    try:
+        parsed_content = _parse_json_text(raw_content)
+    except json.JSONDecodeError as exc:
+        raise OpenRouterRequestError(
+            "OpenRouter returned invalid JSON for the structured assistant response."
+        ) from exc
+
+    try:
+        return AIAssistantPayload.model_validate(parsed_content)
+    except Exception as exc:
+        raise OpenRouterRequestError(
+            "OpenRouter returned a structured assistant response that did not match the expected schema."
+        ) from exc
+
+
+def _parse_json_text(raw_content: str) -> dict:
+    try:
+        return json.loads(raw_content)
+    except json.JSONDecodeError:
+        cleaned_content = raw_content.strip()
+
+        if cleaned_content.startswith("```"):
+            fenced_lines = cleaned_content.splitlines()
+            if len(fenced_lines) >= 3 and fenced_lines[-1].strip() == "```":
+                return json.loads("\n".join(fenced_lines[1:-1]))
+
+        first_object_start = cleaned_content.find("{")
+        last_object_end = cleaned_content.rfind("}")
+        if first_object_start != -1 and last_object_end != -1 and last_object_end > first_object_start:
+            return json.loads(cleaned_content[first_object_start : last_object_end + 1])
+
+        raise

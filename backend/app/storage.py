@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Callable, Dict, List, Optional
 
 from fastapi import HTTPException, status
 
@@ -230,6 +230,120 @@ class BoardStore:
                 (card_id, board_id),
             )
             self._touch_board(connection, board_id)
+            connection.commit()
+            return self._read_board_snapshot(connection, board_id)
+
+    def apply_ai_operations(
+        self,
+        username: str,
+        operations: List[dict],
+        create_id: Callable[[str], str],
+    ) -> Dict[str, object]:
+        with self.connect() as connection:
+            board_id = self._get_or_seed_board(connection, username)
+
+            for operation in operations:
+                operation_type = operation["type"]
+
+                if operation_type == "rename_column":
+                    self._get_column(connection, board_id, operation["columnId"])
+                    connection.execute(
+                        """
+                        UPDATE columns
+                        SET title = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ? AND board_id = ?
+                        """,
+                        (operation["title"], operation["columnId"], board_id),
+                    )
+                    self._touch_board(connection, board_id)
+                    continue
+
+                if operation_type == "create_card":
+                    self._get_column(connection, board_id, operation["columnId"])
+                    sort_order = self._resolve_sort_order(
+                        connection,
+                        board_id=board_id,
+                        target_column_id=operation["columnId"],
+                        before_card_id=operation.get("beforeCardId"),
+                        after_card_id=operation.get("afterCardId"),
+                        moving_card_id=None,
+                    )
+                    connection.execute(
+                        """
+                        INSERT INTO cards (id, board_id, column_id, title, details, sort_order)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            create_id("card"),
+                            board_id,
+                            operation["columnId"],
+                            operation["title"],
+                            operation["details"],
+                            sort_order,
+                        ),
+                    )
+                    self._touch_board(connection, board_id)
+                    continue
+
+                if operation_type == "update_card":
+                    self._get_card_row(connection, board_id, operation["cardId"])
+                    connection.execute(
+                        """
+                        UPDATE cards
+                        SET title = ?, details = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ? AND board_id = ?
+                        """,
+                        (
+                            operation["title"],
+                            operation["details"],
+                            operation["cardId"],
+                            board_id,
+                        ),
+                    )
+                    self._touch_board(connection, board_id)
+                    continue
+
+                if operation_type == "move_card":
+                    self._get_card_row(connection, board_id, operation["cardId"])
+                    self._get_column(connection, board_id, operation["targetColumnId"])
+                    sort_order = self._resolve_sort_order(
+                        connection,
+                        board_id=board_id,
+                        target_column_id=operation["targetColumnId"],
+                        before_card_id=operation.get("beforeCardId"),
+                        after_card_id=operation.get("afterCardId"),
+                        moving_card_id=operation["cardId"],
+                    )
+                    connection.execute(
+                        """
+                        UPDATE cards
+                        SET column_id = ?, sort_order = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ? AND board_id = ?
+                        """,
+                        (
+                            operation["targetColumnId"],
+                            sort_order,
+                            operation["cardId"],
+                            board_id,
+                        ),
+                    )
+                    self._touch_board(connection, board_id)
+                    continue
+
+                if operation_type == "delete_card":
+                    self._get_card_row(connection, board_id, operation["cardId"])
+                    connection.execute(
+                        "DELETE FROM cards WHERE id = ? AND board_id = ?",
+                        (operation["cardId"], board_id),
+                    )
+                    self._touch_board(connection, board_id)
+                    continue
+
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Unsupported AI operation: {operation_type}",
+                )
+
             connection.commit()
             return self._read_board_snapshot(connection, board_id)
 

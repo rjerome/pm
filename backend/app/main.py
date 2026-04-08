@@ -15,6 +15,8 @@ from backend.app.config import AUTH_TOKEN, FRONTEND_DIST_DIR, VALID_PASSWORD, VA
 from backend.app.dependencies import create_board_store, require_username
 from backend.app.models import (
     AIConnectivityCheckResponse,
+    AIChatRequest,
+    AIChatResponse,
     BoardResponse,
     CardCreateRequest,
     CardResponse,
@@ -179,6 +181,53 @@ def create_app(
         return AIConnectivityCheckResponse(
             model=result.model,
             reply=result.reply,
+        )
+
+    @app.post("/api/ai/chat", response_model=AIChatResponse)
+    def run_ai_chat(
+        payload: AIChatRequest,
+        username: str = Depends(require_username),
+    ) -> AIChatResponse:
+        try:
+            board_snapshot = board_store.get_board_snapshot(username)
+            result = configured_ai_client.run_board_assistant(
+                board_snapshot=board_snapshot,
+                message=payload.message,
+                history=payload.history,
+            )
+        except MissingOpenRouterApiKeyError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(exc),
+            ) from exc
+        except OpenRouterRequestError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=str(exc),
+            ) from exc
+
+        updated_board = board_snapshot
+        board_updated = False
+        if result.operations:
+            try:
+                updated_board = board_store.apply_ai_operations(
+                    username=username,
+                    operations=result.operations,
+                    create_id=_create_id,
+                )
+                board_updated = True
+            except HTTPException as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"AI returned invalid board operations: {exc.detail}",
+                ) from exc
+
+        return AIChatResponse(
+            model=result.model,
+            reply=result.reply,
+            operations=result.operations,
+            boardUpdated=board_updated,
+            board=updated_board,
         )
 
     @app.get("/api/board", response_model=BoardResponse)

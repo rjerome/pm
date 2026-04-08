@@ -199,24 +199,31 @@ Execution Notes
 Goal: let the backend send board context and conversation history to the AI and receive a structured reply plus an optional board update.
 
 Checklist
-- [ ] Define a structured output schema for AI responses
-- [ ] Include the current board snapshot, the user message, and conversation history in the AI request
-- [ ] Decide the simplest update contract for the MVP
-- [ ] Prefer a structured list of board operations aligned to backend mutations over full-board replacement
-- [ ] Validate any AI-returned board operations before saving them
-- [ ] Apply and persist the returned board operations only when they are valid
-- [ ] Return both the assistant reply and any board update metadata to the frontend
+- [x] Define a structured output schema for AI responses
+- [x] Include the current board snapshot, the user message, and conversation history in the AI request
+- [x] Decide the simplest update contract for the MVP
+- [x] Prefer a structured list of board operations aligned to backend mutations over full-board replacement
+- [x] Validate any AI-returned board operations before saving them
+- [x] Apply and persist the returned board operations only when they are valid
+- [x] Return both the assistant reply and any board update metadata to the frontend
 
 Tests
-- [ ] Add backend tests for parsing valid structured outputs
-- [ ] Add backend tests for invalid or partial AI responses
-- [ ] Add backend tests proving valid AI board updates are persisted
-- [ ] Add backend tests proving invalid AI board updates are rejected safely
+- [x] Add backend tests for parsing valid structured outputs
+- [x] Add backend tests for invalid or partial AI responses
+- [x] Add backend tests proving valid AI board updates are persisted
+- [x] Add backend tests proving invalid AI board updates are rejected safely
 
 Success Criteria
-- [ ] The backend can turn a user message plus board context into a structured AI response
-- [ ] Optional board operations are validated and persisted correctly
-- [ ] Invalid AI output does not corrupt saved data
+- [x] The backend can turn a user message plus board context into a structured AI response
+- [x] Optional board operations are validated and persisted correctly
+- [x] Invalid AI output does not corrupt saved data
+
+Execution Notes
+- [x] Structured backend endpoint implemented at `POST /api/ai/chat`
+- [x] The MVP update contract uses a list of focused board operations: `rename_column`, `create_card`, `update_card`, `move_card`, and `delete_card`
+- [x] AI operations execute inside one database transaction so invalid operations do not partially persist
+- [x] OpenRouter structured outputs use JSON schema mode with the documented `response-healing` plugin to stabilize provider formatting
+- [x] Real local verification succeeded with an AI-driven column rename and card creation against a temporary SQLite database
 
 ## Part 10: AI Sidebar UI
 
