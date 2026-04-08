@@ -230,24 +230,33 @@ Execution Notes
 Goal: expose the AI workflow in the frontend and keep the board in sync with AI-driven changes.
 
 Checklist
-- [ ] Design and build a sidebar chat UI that fits the existing visual direction
-- [ ] Add message history rendering and a composer
-- [ ] Send user messages to the backend AI endpoint
-- [ ] Show loading and error states clearly
-- [ ] Apply AI-returned board updates to the UI automatically
-- [ ] Refresh or reconcile frontend board state after AI mutations so the board and chat stay consistent
-- [ ] Allow AI-driven card creation, editing, moving, deletion, and column renaming through the shared board update flow
+- [x] Design and build a sidebar chat UI that fits the existing visual direction
+- [x] Add message history rendering and a composer
+- [x] Send user messages to the backend AI endpoint
+- [x] Show loading and error states clearly
+- [x] Apply AI-returned board updates to the UI automatically
+- [x] Refresh or reconcile frontend board state after AI mutations so the board and chat stay consistent
+- [x] Allow AI-driven card creation, editing, moving, deletion, and column renaming through the shared board update flow
 
 Tests
-- [ ] Add frontend component tests for the chat sidebar states
-- [ ] Add integration tests for successful and failed AI interactions
-- [ ] Add end-to-end coverage for AI-driven board changes appearing in the UI
-- [ ] Verify the AI sidebar flow in Docker
+- [x] Add frontend component tests for the chat sidebar states
+- [x] Add integration tests for successful and failed AI interactions
+- [x] Add end-to-end coverage for AI-driven board changes appearing in the UI
+- [x] Verify the AI sidebar flow in Docker
 
 Success Criteria
-- [ ] The user can chat with the AI from the sidebar
-- [ ] AI responses appear in the UI with usable feedback during loading and failure
-- [ ] AI board changes are reflected on the board automatically
+- [x] The user can chat with the AI from the sidebar
+- [x] AI responses appear in the UI with usable feedback during loading and failure
+- [x] AI board changes are reflected on the board automatically
+
+Execution Notes
+- [x] Sidebar chat UI added to the board screen with prompt suggestions, message history, loading state, and error state
+- [x] Frontend chat requests now use `POST /api/ai/chat` and apply returned board snapshots directly
+- [x] AI updates reconcile with the existing board state by replacing the in-memory board snapshot after a successful AI response
+- [x] Frontend unit coverage added for successful and failed AI sidebar interactions
+- [x] Browser coverage added for AI-driven board changes appearing in the UI
+- [x] Local Playwright verification succeeded against the dev-server setup
+- [x] Docker-integrated Playwright verification succeeded against the FastAPI-served built app
 
 ## Definition Of Done
 
@@ -255,5 +264,5 @@ Success Criteria
 - [x] The app runs in Docker
 - [x] Login works with the MVP credentials
 - [x] The board is persistent per user through SQLite
-- [ ] The AI sidebar can respond and update the board
+- [x] The AI sidebar can respond and update the board
 - [x] Local and Docker verification steps are documented and pass

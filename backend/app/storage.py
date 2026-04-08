@@ -407,11 +407,22 @@ class BoardStore:
         if row is not None:
             return int(row["id"])
 
-        cursor = connection.execute(
-            "INSERT INTO users (username) VALUES (?)",
+        connection.execute(
+            "INSERT OR IGNORE INTO users (username) VALUES (?)",
             (username,),
         )
-        return int(cursor.lastrowid)
+        row = connection.execute(
+            "SELECT id FROM users WHERE username = ?",
+            (username,),
+        ).fetchone()
+
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unable to resolve user",
+            )
+
+        return int(row["id"])
 
     def _read_board_snapshot(
         self,

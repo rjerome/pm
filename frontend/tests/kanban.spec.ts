@@ -88,3 +88,165 @@ test("moves a card between columns after sign in", async ({ page }) => {
   await page.mouse.up();
   await expect(targetColumn.getByTestId("card-card-1")).toBeVisible();
 });
+
+test("shows AI-driven board changes in the sidebar flow", async ({ page }) => {
+  await page.route("**/api/ai/chat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        model: "openai/gpt-oss-120b",
+        reply: "I renamed the first column and added a review card.",
+        operations: [
+          {
+            type: "rename_column",
+            columnId: "col-backlog",
+            title: "Ideas",
+          },
+          {
+            type: "create_card",
+            columnId: "col-review",
+            title: "Prepare stakeholder recap",
+            details: "Summarize the release review outcomes.",
+            beforeCardId: null,
+            afterCardId: "card-6",
+          },
+        ],
+        boardUpdated: true,
+        board: {
+          version: 3,
+          columns: [
+            {
+              id: "col-backlog",
+              slotKey: "backlog",
+              title: "Ideas",
+              position: 0,
+              version: 2,
+              cardIds: ["card-1", "card-2"],
+            },
+            {
+              id: "col-discovery",
+              slotKey: "discovery",
+              title: "Discovery",
+              position: 1,
+              version: 1,
+              cardIds: ["card-3"],
+            },
+            {
+              id: "col-progress",
+              slotKey: "progress",
+              title: "In Progress",
+              position: 2,
+              version: 1,
+              cardIds: ["card-4", "card-5"],
+            },
+            {
+              id: "col-review",
+              slotKey: "review",
+              title: "Review",
+              position: 3,
+              version: 1,
+              cardIds: ["card-6", "card-ai"],
+            },
+            {
+              id: "col-done",
+              slotKey: "done",
+              title: "Done",
+              position: 4,
+              version: 1,
+              cardIds: ["card-7", "card-8"],
+            },
+          ],
+          cards: {
+            "card-1": {
+              id: "card-1",
+              columnId: "col-backlog",
+              title: "Align roadmap themes",
+              details: "Draft quarterly themes with impact statements and metrics.",
+              sortOrder: 1000,
+              version: 1,
+            },
+            "card-2": {
+              id: "card-2",
+              columnId: "col-backlog",
+              title: "Gather customer signals",
+              details: "Review support tags, sales notes, and churn feedback.",
+              sortOrder: 2000,
+              version: 1,
+            },
+            "card-3": {
+              id: "card-3",
+              columnId: "col-discovery",
+              title: "Prototype analytics view",
+              details: "Sketch initial dashboard layout and key drill-downs.",
+              sortOrder: 1000,
+              version: 1,
+            },
+            "card-4": {
+              id: "card-4",
+              columnId: "col-progress",
+              title: "Refine status language",
+              details: "Standardize column labels and tone across the board.",
+              sortOrder: 1000,
+              version: 1,
+            },
+            "card-5": {
+              id: "card-5",
+              columnId: "col-progress",
+              title: "Design card layout",
+              details: "Add hierarchy and spacing for scanning dense lists.",
+              sortOrder: 2000,
+              version: 1,
+            },
+            "card-6": {
+              id: "card-6",
+              columnId: "col-review",
+              title: "QA micro-interactions",
+              details: "Verify hover, focus, and loading states.",
+              sortOrder: 1000,
+              version: 1,
+            },
+            "card-7": {
+              id: "card-7",
+              columnId: "col-done",
+              title: "Ship marketing page",
+              details: "Final copy approved and asset pack delivered.",
+              sortOrder: 1000,
+              version: 1,
+            },
+            "card-8": {
+              id: "card-8",
+              columnId: "col-done",
+              title: "Close onboarding sprint",
+              details: "Document release notes and share internally.",
+              sortOrder: 2000,
+              version: 1,
+            },
+            "card-ai": {
+              id: "card-ai",
+              columnId: "col-review",
+              title: "Prepare stakeholder recap",
+              details: "Summarize the release review outcomes.",
+              sortOrder: 1500,
+              version: 1,
+            },
+          },
+        },
+      }),
+    });
+  });
+
+  await login(page);
+
+  await page
+    .getByLabel("Ask the AI assistant")
+    .fill("Rename backlog to Ideas and add a review card.");
+  await page.getByRole("button", { name: /^send$/i }).click();
+
+  await expect(page.getByText("I renamed the first column and added a review card.")).toBeVisible();
+  await expect(page.getByTestId("column-col-backlog").getByLabel("Column title")).toHaveValue(
+    "Ideas"
+  );
+  await expect(page.getByTestId("column-col-review").getByText("Prepare stakeholder recap")).toBeVisible();
+  await expect(page.getByText(/board updated/i)).toBeVisible();
+});

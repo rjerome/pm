@@ -9,7 +9,7 @@ This directory contains the current frontend-only MVP for the project management
 - Styling: Tailwind CSS v4 plus CSS variables in `src/app/globals.css`
 - Drag and drop: `@dnd-kit/core` and `@dnd-kit/sortable`
 - Tests: Vitest for unit and component tests, Playwright for end-to-end tests
-- Current behavior is entirely client-side and in-memory
+- Current behavior is API-backed and persistent through the FastAPI backend
 - Production builds are exported as static files so FastAPI can serve them in the integrated app
 
 ## Entry Points
@@ -17,7 +17,9 @@ This directory contains the current frontend-only MVP for the project management
 - `src/app/layout.tsx` sets fonts, metadata, and global styles
 - `src/app/page.tsx` renders the main `KanbanBoard`
 - `src/components/KanbanBoard.tsx` owns the main board state and drag-and-drop flow
+- `src/components/AIChatSidebar.tsx` owns the sidebar chat UI and AI interaction flow
 - `src/lib/kanban.ts` contains the board data model, demo seed data, and card movement helpers
+- `src/lib/boardApi.ts` owns login, board, and AI chat API calls
 
 ## Current Features
 
@@ -26,15 +28,14 @@ This directory contains the current frontend-only MVP for the project management
 - Allows adding cards within a column
 - Allows deleting cards
 - Allows dragging cards within and across columns
+- Allows chatting with the AI in a sidebar and applying AI-driven board updates
 - Shows a polished visual design that already follows the project color palette
 
 ## Important Constraints
 
-- There is no backend integration yet
 - Authentication is a lightweight client-managed token flow backed by `/api/auth/login` and `/api/auth/me`
-- There is no persistence yet
-- There is no AI sidebar yet
-- The frontend currently assumes it owns all board state locally
+- The sidebar depends on backend AI responses shaped as a reply plus focused board operations
+- The frontend should treat backend board snapshots as the source of truth after both manual and AI-driven updates
 
 ## Test Setup
 
@@ -55,7 +56,4 @@ This directory contains the current frontend-only MVP for the project management
 
 ## Expected Future Work In This Directory
 
-- Add login UI
-- Replace in-memory board loading and saving with backend API calls
-- Add AI chat sidebar UI
-- Adjust build output as needed so FastAPI can serve the integrated frontend
+- Refine the AI chat experience if future product requirements expand beyond the MVP

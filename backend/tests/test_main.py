@@ -245,6 +245,44 @@ def test_openrouter_client_rejects_partial_structured_board_response() -> None:
         raise AssertionError("Expected structured response validation to fail.")
 
 
+def test_openrouter_client_retries_transient_structured_output_failure() -> None:
+    responses = iter(
+        [
+            {
+                "model": "openai/gpt-oss-120b",
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"operations":[{"type":"delete_card","cardId":"card-1"}]}'
+                        }
+                    }
+                ],
+            },
+            {
+                "model": "openai/gpt-oss-120b",
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"reply":"Done.","operations":[]}'
+                        }
+                    }
+                ],
+            },
+        ]
+    )
+    client = OpenRouterClient(api_key="test-key")
+    client._post = lambda payload: next(responses)  # type: ignore[method-assign]
+
+    result = client.run_board_assistant(
+        board_snapshot={"version": 1, "columns": [], "cards": {}},
+        message="Do nothing",
+        history=[],
+    )
+
+    assert result.reply == "Done."
+    assert result.operations == []
+
+
 def test_ai_chat_returns_reply_without_board_update_when_no_operations(
     tmp_path: Path,
 ) -> None:

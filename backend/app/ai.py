@@ -1,4 +1,6 @@
 import json
+import socket
+import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 from urllib import error, request
@@ -9,6 +11,7 @@ from backend.app.config import (
     OPENROUTER_CONNECTIVITY_PROMPT,
     OPENROUTER_HTTP_REFERER,
     OPENROUTER_MODEL,
+    OPENROUTER_MAX_RETRIES,
     OPENROUTER_TIMEOUT_SECONDS,
     get_openrouter_api_key,
 )
@@ -43,11 +46,13 @@ class OpenRouterClient:
         api_url: str = OPENROUTER_API_URL,
         model: str = OPENROUTER_MODEL,
         timeout_seconds: int = OPENROUTER_TIMEOUT_SECONDS,
+        max_retries: int = OPENROUTER_MAX_RETRIES,
     ) -> None:
         self.api_key = get_openrouter_api_key() if api_key is None else api_key
         self.api_url = api_url
         self.model = model
         self.timeout_seconds = timeout_seconds
+        self.max_retries = max_retries
 
     def run_connectivity_check(self) -> ConnectivityCheckResult:
         if not self.api_key:
@@ -83,33 +88,49 @@ class OpenRouterClient:
                 "OPENROUTER_API_KEY is not configured."
             )
 
-        response_payload = self._post(
-            {
-                "model": self.model,
-                "messages": _build_board_assistant_messages(
-                    board_snapshot=board_snapshot,
-                    message=message,
-                    history=history,
-                ),
-                "response_format": {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "board_assistant_response",
-                        "strict": True,
-                        "schema": AIAssistantPayload.model_json_schema(),
-                    },
+        request_payload = {
+            "model": self.model,
+            "messages": _build_board_assistant_messages(
+                board_snapshot=board_snapshot,
+                message=message,
+                history=history,
+            ),
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "board_assistant_response",
+                    "strict": True,
+                    "schema": AIAssistantPayload.model_json_schema(),
                 },
-                "plugins": [{"id": "response-healing"}],
-                "temperature": 0,
-            }
-        )
+            },
+            "plugins": [{"id": "response-healing"}],
+            "temperature": 0,
+            "max_tokens": 300,
+        }
 
-        assistant_payload = _parse_assistant_payload(response_payload)
-        return BoardAssistantResult(
-            model=str(response_payload.get("model") or self.model),
-            reply=assistant_payload.reply,
-            operations=[operation.model_dump() for operation in assistant_payload.operations],
-        )
+        last_error: Optional[OpenRouterRequestError] = None
+        for attempt in range(self.max_retries + 1):
+            response_payload = self._post(request_payload)
+
+            try:
+                assistant_payload = _parse_assistant_payload(response_payload)
+            except OpenRouterRequestError as exc:
+                last_error = exc
+                if not _is_retryable_structured_output_error(exc) or attempt >= self.max_retries:
+                    raise
+                time.sleep(0.4 * (attempt + 1))
+                continue
+
+            return BoardAssistantResult(
+                model=str(response_payload.get("model") or self.model),
+                reply=assistant_payload.reply,
+                operations=[operation.model_dump() for operation in assistant_payload.operations],
+            )
+
+        if last_error is not None:
+            raise last_error
+
+        raise OpenRouterRequestError("OpenRouter request failed before a valid response was returned.")
 
     def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
         raw_payload = json.dumps(payload).encode("utf-8")
@@ -134,6 +155,10 @@ class OpenRouterClient:
         except error.URLError as exc:
             raise OpenRouterRequestError(
                 f"Could not reach OpenRouter: {exc.reason}"
+            ) from exc
+        except socket.timeout as exc:
+            raise OpenRouterRequestError(
+                "OpenRouter timed out before returning a response."
             ) from exc
 
         try:
@@ -268,3 +293,10 @@ def _parse_json_text(raw_content: str) -> dict:
             return json.loads(cleaned_content[first_object_start : last_object_end + 1])
 
         raise
+
+
+def _is_retryable_structured_output_error(error_value: OpenRouterRequestError) -> bool:
+    return str(error_value) in {
+        "OpenRouter returned invalid JSON for the structured assistant response.",
+        "OpenRouter returned a structured assistant response that did not match the expected schema.",
+    }
