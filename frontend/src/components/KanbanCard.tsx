@@ -62,6 +62,7 @@ export const KanbanCard = ({ card, onDelete, onUpdate }: KanbanCardProps) => {
   const [title, setTitle] = useState(card.title);
   const [details, setDetails] = useState(card.details);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -164,9 +165,14 @@ export const KanbanCard = ({ card, onDelete, onUpdate }: KanbanCardProps) => {
                   type="button"
                   onPointerDown={(event) => event.stopPropagation()}
                   onClick={() => {
-                    void onDelete(card.id);
+                    if (isDeleting) return;
+                    setIsDeleting(true);
+                    void Promise.resolve(onDelete(card.id)).finally(() =>
+                      setIsDeleting(false)
+                    );
                   }}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--gray-text)] transition hover:bg-[var(--surface)] hover:text-[var(--navy-dark)]"
+                  disabled={isDeleting}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--gray-text)] transition hover:bg-[var(--surface)] hover:text-[var(--navy-dark)] disabled:opacity-40"
                   aria-label={`Delete ${card.title}`}
                 >
                   <DeleteIcon />

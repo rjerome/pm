@@ -297,6 +297,7 @@ def _parse_json_text(raw_content: str) -> dict:
 
 def _is_retryable_structured_output_error(error_value: OpenRouterRequestError) -> bool:
     return str(error_value) in {
+        "OpenRouter response did not include assistant text.",
         "OpenRouter returned invalid JSON for the structured assistant response.",
         "OpenRouter returned a structured assistant response that did not match the expected schema.",
     }

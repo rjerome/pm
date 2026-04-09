@@ -161,9 +161,8 @@ def create_app(
 
     @app.post("/api/ai/connectivity-check", response_model=AIConnectivityCheckResponse)
     def run_ai_connectivity_check(
-        username: str = Depends(require_username),
+        _: str = Depends(require_username),
     ) -> AIConnectivityCheckResponse:
-        del username
 
         try:
             result = configured_ai_client.run_connectivity_check()

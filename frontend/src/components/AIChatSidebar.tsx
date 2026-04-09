@@ -31,26 +31,6 @@ const SUGGESTED_PROMPTS = [
 
 const createMessageId = () =>
   `msg-${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
-const UI_TIMEOUT_MESSAGE = "The AI assistant took too long to respond. Please try again.";
-const UI_TIMEOUT_MS = 45_000;
-
-const withRequestTimeout = <T,>(task: Promise<T>): Promise<T> =>
-  new Promise<T>((resolve, reject) => {
-    const timeoutId = window.setTimeout(() => {
-      reject(new Error(UI_TIMEOUT_MESSAGE));
-    }, UI_TIMEOUT_MS);
-
-    task.then(
-      (value) => {
-        window.clearTimeout(timeoutId);
-        resolve(value);
-      },
-      (error) => {
-        window.clearTimeout(timeoutId);
-        reject(error);
-      }
-    );
-  });
 
 export const AIChatSidebar = ({
   token,
@@ -117,12 +97,10 @@ export const AIChatSidebar = ({
     const requestId = activeRequestIdRef.current;
 
     try {
-      const response = await withRequestTimeout(
-        sendAIChatMessage(token, {
-          message: nextMessage,
-          history: conversationHistory,
-        })
-      );
+      const response = await sendAIChatMessage(token, {
+        message: nextMessage,
+        history: conversationHistory,
+      });
 
       if (activeRequestIdRef.current !== requestId) {
         return;

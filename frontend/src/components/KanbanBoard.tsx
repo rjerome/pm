@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -8,11 +8,14 @@ import {
   useSensor,
   useSensors,
   closestCorners,
+  pointerWithin,
+  type CollisionDetection,
   type DragCancelEvent,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+
 import { AIChatSidebar } from "@/components/AIChatSidebar";
 import { KanbanColumn } from "@/components/KanbanColumn";
 import { KanbanCardPreview } from "@/components/KanbanCardPreview";
@@ -47,6 +50,15 @@ export const KanbanBoard = ({ token, onLogout }: KanbanBoardProps) => {
       activationConstraint: { distance: 6 },
     })
   );
+
+  // pointerWithin detects drops on empty columns; closestCorners handles sorting within columns.
+  const collisionDetection = useCallback<CollisionDetection>((args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) {
+      return pointerCollisions;
+    }
+    return closestCorners(args);
+  }, []);
 
   const cardsById = useMemo(() => board?.cards ?? {}, [board]);
 
@@ -331,7 +343,7 @@ export const KanbanBoard = ({ token, onLogout }: KanbanBoardProps) => {
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCorners}
+            collisionDetection={collisionDetection}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDragCancel={handleDragCancel}

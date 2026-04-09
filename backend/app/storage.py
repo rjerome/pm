@@ -6,6 +6,11 @@ from fastapi import HTTPException, status
 
 from backend.app.board_seed import SEED_CARDS, SEED_COLUMNS
 
+_SUPPORTED_AI_OPERATION_TYPES = frozenset(
+    {"rename_column", "create_card", "update_card", "move_card", "delete_card"}
+)
+_MIN_SORT_GAP = 1.0
+
 
 class BoardStore:
     def __init__(self, db_path: Path):
@@ -239,6 +244,14 @@ class BoardStore:
         operations: List[dict],
         create_id: Callable[[str], str],
     ) -> Dict[str, object]:
+        for operation in operations:
+            operation_type = operation.get("type")
+            if operation_type not in _SUPPORTED_AI_OPERATION_TYPES:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Unsupported AI operation: {operation_type}",
+                )
+
         with self.connect() as connection:
             board_id = self._get_or_seed_board(connection, username)
 
@@ -338,11 +351,6 @@ class BoardStore:
                     )
                     self._touch_board(connection, board_id)
                     continue
-
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Unsupported AI operation: {operation_type}",
-                )
 
             connection.commit()
             return self._read_board_snapshot(connection, board_id)
@@ -547,6 +555,26 @@ class BoardStore:
             )
         return row
 
+    def _rebalance_column(
+        self,
+        connection: sqlite3.Connection,
+        board_id: int,
+        column_id: str,
+    ) -> None:
+        rows = connection.execute(
+            """
+            SELECT id FROM cards
+            WHERE board_id = ? AND column_id = ?
+            ORDER BY sort_order, id
+            """,
+            (board_id, column_id),
+        ).fetchall()
+        for i, row in enumerate(rows):
+            connection.execute(
+                "UPDATE cards SET sort_order = ? WHERE id = ? AND board_id = ?",
+                ((i + 1) * 1000.0, row["id"], board_id),
+            )
+
     def _resolve_sort_order(
         self,
         connection: sqlite3.Connection,
@@ -592,7 +620,11 @@ class BoardStore:
             )
 
         if before_row and after_row:
-            return (before_row["sort_order"] + after_row["sort_order"]) / 2
+            if before_row["sort_order"] - after_row["sort_order"] < _MIN_SORT_GAP * 2:
+                self._rebalance_column(connection, board_id, target_column_id)
+                before_row = self._get_card_row(connection, board_id, before_card_id)
+                after_row = self._get_card_row(connection, board_id, after_card_id)
+            return (float(before_row["sort_order"]) + float(after_row["sort_order"])) / 2
 
         if before_row:
             previous_row = connection.execute(
@@ -610,8 +642,26 @@ class BoardStore:
                     before_row["sort_order"],
                 ),
             ).fetchone()
-            previous_order = previous_row["sort_order"] if previous_row else before_row["sort_order"] - 1000
-            return (previous_order + before_row["sort_order"]) / 2
+            previous_order = float(
+                previous_row["sort_order"] if previous_row else before_row["sort_order"] - 1000
+            )
+            if float(before_row["sort_order"]) - previous_order < _MIN_SORT_GAP * 2:
+                self._rebalance_column(connection, board_id, target_column_id)
+                before_row = self._get_card_row(connection, board_id, before_card_id)
+                previous_row = connection.execute(
+                    """
+                    SELECT sort_order
+                    FROM cards
+                    WHERE board_id = ? AND column_id = ? AND id != ? AND sort_order < ?
+                    ORDER BY sort_order DESC
+                    LIMIT 1
+                    """,
+                    (board_id, target_column_id, moving_card_id or "", before_row["sort_order"]),
+                ).fetchone()
+                previous_order = float(
+                    previous_row["sort_order"] if previous_row else before_row["sort_order"] - 1000
+                )
+            return (previous_order + float(before_row["sort_order"])) / 2
 
         if after_row:
             next_row = connection.execute(
@@ -629,8 +679,26 @@ class BoardStore:
                     after_row["sort_order"],
                 ),
             ).fetchone()
-            next_order = next_row["sort_order"] if next_row else after_row["sort_order"] + 1000
-            return (after_row["sort_order"] + next_order) / 2
+            next_order = float(
+                next_row["sort_order"] if next_row else after_row["sort_order"] + 1000
+            )
+            if next_order - float(after_row["sort_order"]) < _MIN_SORT_GAP * 2:
+                self._rebalance_column(connection, board_id, target_column_id)
+                after_row = self._get_card_row(connection, board_id, after_card_id)
+                next_row = connection.execute(
+                    """
+                    SELECT sort_order
+                    FROM cards
+                    WHERE board_id = ? AND column_id = ? AND id != ? AND sort_order > ?
+                    ORDER BY sort_order ASC
+                    LIMIT 1
+                    """,
+                    (board_id, target_column_id, moving_card_id or "", after_row["sort_order"]),
+                ).fetchone()
+                next_order = float(
+                    next_row["sort_order"] if next_row else after_row["sort_order"] + 1000
+                )
+            return (float(after_row["sort_order"]) + next_order) / 2
 
         last_row = connection.execute(
             """

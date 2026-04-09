@@ -24,9 +24,16 @@ describe("AIChatSidebar", () => {
     vi.useRealTimers();
   });
 
-  it("stops showing Sending when the AI request never resolves", async () => {
+  it("stops showing Sending when the AI request times out", async () => {
     vi.useFakeTimers();
-    mockedSendAIChatMessage.mockImplementation(() => new Promise(() => undefined));
+    mockedSendAIChatMessage.mockImplementation(
+      () =>
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => {
+            reject(new Error("The AI assistant took too long to respond. Please try again."));
+          }, 45_000);
+        })
+    );
 
     render(
       <AIChatSidebar

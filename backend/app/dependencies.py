@@ -26,8 +26,8 @@ def create_board_store(explicit_path: Optional[Path] = None) -> BoardStore:
 
 
 def get_authenticated_username(authorization: Optional[str]) -> str:
-    expected_value = f"Bearer {AUTH_TOKEN}"
-    if authorization != expected_value:
+    parts = (authorization or "").split(None, 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer" or parts[1] != AUTH_TOKEN:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized",

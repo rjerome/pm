@@ -22,6 +22,7 @@ export type BoardData = {
   cards: Record<string, Card>;
 };
 
+// Used only in tests. Must be kept in sync with backend/app/board_seed.py.
 export const initialData: BoardData = {
   version: 1,
   columns: [
